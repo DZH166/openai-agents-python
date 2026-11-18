@@ -976,6 +976,63 @@ class TestGuardrailFunctionality:
         assert len(session._item_guardrail_run_counts) == 0
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("deltas", "expected_checked_lengths"),
+        [
+            (["hunter2"], [7]),
+            (["a" * 101, "hunter2"], [101, 108]),
+        ],
+        ids=["short_reply", "tail_after_boundary"],
+    )
+    async def test_turn_end_checks_text_below_or_after_the_last_boundary(
+        self,
+        mock_model,
+        mock_agent,
+        deltas,
+        expected_checked_lengths,
+    ):
+        checked: list[str] = []
+
+        def guardrail_func(context, agent, output):
+            _ = context, agent
+            checked.append(output)
+            return GuardrailFunctionOutput(output_info=None, tripwire_triggered="hunter2" in output)
+
+        session = RealtimeSession(
+            mock_model,
+            mock_agent,
+            None,
+            run_config={
+                "output_guardrails": [
+                    OutputGuardrail(guardrail_function=guardrail_func, name="secret_guardrail")
+                ],
+                "guardrails_settings": {"debounce_text_length": 100},
+            },
+        )
+
+        await session.on_event(RealtimeModelTurnStartedEvent(response_id="response_1"))
+        for delta in deltas:
+            await session.on_event(
+                RealtimeModelOutputTextDeltaEvent(
+                    item_id="item_1",
+                    delta=delta,
+                    response_id="response_1",
+                )
+            )
+        await self._wait_for_guardrail_tasks(session)
+
+        await session.on_event(RealtimeModelTurnEndedEvent(response_id="response_1"))
+        await self._wait_for_guardrail_tasks(session)
+
+        assert [len(output) for output in checked] == expected_checked_lengths
+        assert checked[-1].endswith("hunter2")
+
+        events = []
+        while not session._event_queue.empty():
+            events.append(await session._event_queue.get())
+        assert sum(isinstance(event, RealtimeGuardrailTripped) for event in events) == 1
+
+    @pytest.mark.asyncio
     async def test_multiple_guardrails_all_triggered(self, mock_model, mock_agent):
         """Test that all triggered guardrails are included in the event"""
 

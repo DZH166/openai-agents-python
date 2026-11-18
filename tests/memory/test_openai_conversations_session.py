@@ -285,6 +285,20 @@ class TestOpenAIConversationsSessionBasicOperations:
         mock_openai_client.conversations.items.list.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_get_items_negative_limit_returns_empty_without_api_call(
+        self, mock_openai_client
+    ):
+        """A negative history limit must not return the newest item."""
+        mock_openai_client.conversations.items.list = MagicMock(
+            side_effect=AssertionError("items.list must not receive a negative limit")
+        )
+        session = OpenAIConversationsSession(openai_client=mock_openai_client)
+
+        assert await session.get_items(limit=-1) == []
+
+        mock_openai_client.conversations.items.list.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_get_items_applies_large_limit_after_provider_pagination(
         self, mock_openai_client
     ):

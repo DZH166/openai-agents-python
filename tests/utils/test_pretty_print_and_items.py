@@ -86,3 +86,25 @@ def test_pretty_print_run_error_details_zero_output_guardrails():
     details = _make_run_error_details(n_input=0, n_output=0)
     text = pretty_print_run_error_details(details)
     assert "0 output guardrail result(s)" in text
+
+
+def test_pretty_print_run_error_details_escapes_terminal_controls():
+    """Error details must escape terminal controls like the result diagnostics do."""
+    payload = "agent\x1b[2J\x9b31m\x07"
+    details = RunErrorDetails(
+        input="hi",
+        new_items=[],
+        raw_responses=[],
+        last_agent=Agent(name=payload),
+        context_wrapper=None,  # type: ignore[arg-type]
+        input_guardrail_results=[],
+        output_guardrail_results=[],
+    )
+
+    text = pretty_print_run_error_details(details)
+
+    assert r'Agent(name="agent\x1b[2J\x9b31m\x07", ...)' in text
+    assert all(char >= " " or char in "\n\t" for char in text)
+    assert not any("\x7f" <= char <= "\x9f" for char in text)
+    # Escaping is display-only and must not touch the agent identity.
+    assert details.last_agent.name == payload

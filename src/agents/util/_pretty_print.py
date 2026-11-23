@@ -58,7 +58,7 @@ def pretty_print_run_error_details(result: "RunErrorDetails") -> str:
     output += f"\n- {len(result.tool_output_guardrail_results)} tool output guardrail result(s)"
     output += "\n(See `RunErrorDetails` for more details)"
 
-    return output
+    return _escape_terminal_controls(output)
 
 
 def pretty_print_run_result_streaming(result: "RunResultStreaming") -> str:

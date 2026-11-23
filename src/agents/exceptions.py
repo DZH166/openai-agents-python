@@ -428,6 +428,20 @@ class ToolTimeoutError(AgentsException):
         super().__init__(f"Tool '{tool_name}' timed out after {timeout_seconds:g} seconds.")
 
 
+def _guardrail_display_name(guardrail: Any) -> str:
+    """Return the guardrail name the runner already records for this tripwire.
+
+    Guardrail spans and span errors identify a guardrail with ``get_name()``, so the
+    exception reads like the trace it belongs to. A user-supplied guardrail object
+    without an inspectable name still reports its class instead of raising here.
+    """
+    try:
+        name = guardrail.get_name()
+    except Exception:
+        return type(guardrail).__name__
+    return name if isinstance(name, str) and name else type(guardrail).__name__
+
+
 class InputGuardrailTripwireTriggered(AgentsException):
     """Exception raised when a guardrail tripwire is triggered."""
 
@@ -437,7 +451,7 @@ class InputGuardrailTripwireTriggered(AgentsException):
     def __init__(self, guardrail_result: InputGuardrailResult):
         self.guardrail_result = guardrail_result
         super().__init__(
-            f"Guardrail {guardrail_result.guardrail.__class__.__name__} triggered tripwire"
+            f"Guardrail {_guardrail_display_name(guardrail_result.guardrail)} triggered tripwire"
         )
 
 
@@ -450,7 +464,7 @@ class OutputGuardrailTripwireTriggered(AgentsException):
     def __init__(self, guardrail_result: OutputGuardrailResult):
         self.guardrail_result = guardrail_result
         super().__init__(
-            f"Guardrail {guardrail_result.guardrail.__class__.__name__} triggered tripwire"
+            f"Guardrail {_guardrail_display_name(guardrail_result.guardrail)} triggered tripwire"
         )
 
 
@@ -466,7 +480,9 @@ class ToolInputGuardrailTripwireTriggered(AgentsException):
     def __init__(self, guardrail: ToolInputGuardrail[Any], output: ToolGuardrailFunctionOutput):
         self.guardrail = guardrail
         self.output = output
-        super().__init__(f"Tool input guardrail {guardrail.__class__.__name__} triggered tripwire")
+        super().__init__(
+            f"Tool input guardrail {_guardrail_display_name(guardrail)} triggered tripwire"
+        )
 
 
 class ToolOutputGuardrailTripwireTriggered(AgentsException):
@@ -481,4 +497,6 @@ class ToolOutputGuardrailTripwireTriggered(AgentsException):
     def __init__(self, guardrail: ToolOutputGuardrail[Any], output: ToolGuardrailFunctionOutput):
         self.guardrail = guardrail
         self.output = output
-        super().__init__(f"Tool output guardrail {guardrail.__class__.__name__} triggered tripwire")
+        super().__init__(
+            f"Tool output guardrail {_guardrail_display_name(guardrail)} triggered tripwire"
+        )

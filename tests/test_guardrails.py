@@ -2362,3 +2362,17 @@ async def test_output_guardrail_exception_reports_completed_results_streamed():
             pass
 
     assert _result_names(result.output_guardrail_results) == ["passes"]
+
+
+@pytest.mark.asyncio
+async def test_input_tripwire_exception_names_the_guardrail_that_tripped():
+    """The raised tripwire names its guardrail, matching the guardrail span it records."""
+    for name in ("pii_filter", "prompt_injection"):
+        guardrail = InputGuardrail(
+            guardrail_function=get_async_input_guardrail(triggers=True), name=name
+        )
+        with pytest.raises(InputGuardrailTripwireTriggered) as exc_info:
+            await run_input_guardrails(
+                Agent(name="naming_agent"), [guardrail], "hello", RunContextWrapper(context=None)
+            )
+        assert str(exc_info.value) == f"Guardrail {name} triggered tripwire"
